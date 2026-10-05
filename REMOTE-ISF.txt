@@ -1,0 +1,1 @@
+vol -f memory.lime --remote-isf-url 'https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json' linux.pslist
