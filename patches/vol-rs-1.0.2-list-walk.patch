@@ -1,0 +1,33 @@
+diff --git a/src/framework/objects/utility.rs b/src/framework/objects/utility.rs
+index 57e1d78..a2e796c 100644
+--- a/src/framework/objects/utility.rs
++++ b/src/framework/objects/utility.rs
+@@ -155,12 +155,14 @@ fn walk_list_into(
+     let head_offset = head.offset();
+     seen.insert(head_offset);
+ 
++    // Each direction tracks its own loop. A node the other pass already yielded
++    // is skipped, not a stopping point: on a smeared list there can be new nodes
++    // beyond it, and upstream keeps walking.
++    let mut visited = HashSet::new();
+     let mut current = head.member(&link)?.pointer_value()?;
+ 
+     while current != 0 && current != head_offset {
+-        if !seen.insert(current) {
+-            // Already walked, either earlier in this pass or by the pass in the
+-            // other direction. Either way there is nothing new beyond it.
++        if !visited.insert(current) {
+             log::debug!("List walk revisited {current:#x}; stopping");
+             break;
+         }
+@@ -186,7 +188,9 @@ fn walk_list_into(
+ 
+         // Yield before following the link: a node whose own contents are
+         // readable counts, even when the link out of it is not.
+-        results.push(object.clone());
++        if seen.insert(current) {
++            results.push(object.clone());
++        }
+ 
+         // The link is read as a list of its own at that address rather than as
+         // a member of the containing structure, which is what upstream does and

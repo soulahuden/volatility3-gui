@@ -6,11 +6,13 @@ from, then click the plugins to run.  Every run is written to its own file in
 the output folder, and anything Volatility complains about is shown in the log.
 
 The GUI never talks to the framework directly while analysing: each run is a
-separate ``vol.py`` process, so a plugin that hangs or crashes cannot take the
-window down with it and can always be stopped.
+separate process of vol-rs, the Rust port of Volatility 3 (or ``vol.py`` when
+that binary is not installed), so a plugin that hangs or crashes cannot take
+the window down with it and can always be stopped.
 """
 
 import collections
+import concurrent.futures
 import contextlib
 import csv
 import dataclasses
@@ -34,6 +36,8 @@ from typing import Any, Deque, Dict, List, Optional, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent
 VOL_PY = BASE_DIR / "vol.py"
+VOL_RS = BASE_DIR / "bin" / ("vol-rs.exe" if os.name == "nt" else "vol-rs")
+SYMBOL_DIR = BASE_DIR / "volatility3" / "symbols"
 DEFAULT_OUTPUT_ROOT = BASE_DIR / "output"
 SETTINGS_FILE = Path.home() / ".vol_gui.json"
 
@@ -129,6 +133,7 @@ OS_SIGNATURES = {
 PROGRESS_RE = re.compile(r"^Progress:\s*([0-9.]+)\s*(.*)$")
 INTEGER_RE = re.compile(r"^-?\d+$")
 WINDOWS_PATH_RE = re.compile(r"^([A-Za-z]):[\\/](.*)$")
+USAGE_OPTION_RE = re.compile(r"(\[?)(--[\w-]+)((?:(?! \[?--).)*)")
 
 
 def normalize_path(text: str) -> str:
@@ -161,7 +166,107 @@ def open_folder(path: Path) -> None:
         subprocess.Popen(["xdg-open", str(path)])
 
 
+def using_rust() -> bool:
+    """Whether runs go to vol-rs; VOL_GUI_ENGINE=python forces vol.py."""
+    return VOL_RS.is_file() and os.environ.get("VOL_GUI_ENGINE") != "python"
+
+
+def engine_command() -> List[str]:
+    """The start of the command line of a run, up to the global options.
+
+    vol-rs keeps its own symbol folder, so it is pointed at the symbols that
+    were already collected here for vol.py.
+    """
+    if using_rust():
+        return [str(VOL_RS), "-s", str(SYMBOL_DIR)]
+    return [sys.executable, "-u", str(VOL_PY)]
+
+
+def parse_plugin_help(text: str) -> Dict[str, Any]:
+    """Reads a plugin's description and options from its ``--help`` page."""
+    head, _, body = text.partition("options:\n")
+    usage, _, doc = head.partition("\n\n")
+    options: Dict[str, Dict[str, Any]] = {}
+    for match in USAGE_OPTION_RE.finditer(" ".join(usage.split())):
+        bracket, flag, argument = match.groups()
+        argument = argument.strip()
+        if bracket:
+            argument = argument[:-1]  # the bracket closing this option
+        kind, choices = "bool", None
+        if argument.startswith("{"):
+            kind, choices = "choice", argument.strip("{}").split(",")
+        elif "..." in argument:
+            kind = "list"
+        elif argument:
+            kind = "value"
+        options[flag] = {
+            "name": flag[2:],
+            "description": "",
+            "optional": bool(bracket),
+            "kind": kind,
+            "choices": choices,
+            "argument": argument,
+        }
+
+    # The rest of the plugin's description follows the options as an epilog
+    body, _, epilog = body.partition("\n\n")
+    current: Optional[Dict[str, Any]] = None
+    for line in body.splitlines():
+        words = line.split()
+        if line.startswith("  -"):
+            # The argument column is known from the usage, what is left is text
+            current = options.get(words[0])
+            if current is None:
+                continue
+            line = line.strip()[len(words[0]) :].strip()
+            line = line[len(current["argument"]) :]
+        if current is not None:
+            current["description"] = f"{current['description']} {line.strip()}".strip()
+
+    return {
+        "doc": " ".join(f"{doc} {epilog}".split()) or "(tidak ada deskripsi)",
+        "options": list(options.values()),
+    }
+
+
+def load_rust_catalog() -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
+    """Asks vol-rs for every plugin and the options each one accepts.
+
+    Returns:
+        The catalog keyed by plugin name, and the plugins that could not be read
+    """
+
+    def run(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(VOL_RS), *args],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            stdin=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+
+    listing = run("--list-plugins")
+    if listing.returncode != 0:
+        raise RuntimeError(f"vol-rs --list-plugins: {listing.stderr.strip()}")
+    names = sorted(line.split()[0] for line in listing.stdout.splitlines() if line.strip())
+
+    catalog: Dict[str, Dict[str, Any]] = {}
+    failures: List[str] = []
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as pool:
+        for name, page in zip(names, pool.map(lambda name: run(name, "--help"), names)):
+            if page.returncode == 0:
+                catalog[name] = parse_plugin_help(page.stdout)
+            else:
+                failures.append(f"{name}: {page.stderr.strip()}")
+    return catalog, failures
+
+
 def load_plugin_catalog() -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
+    return load_rust_catalog() if using_rust() else load_framework_catalog()
+
+
+def load_framework_catalog() -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
     """Asks the framework for every plugin and the options each one accepts.
 
     Only the requirements that ``vol.py`` exposes as command line arguments are
@@ -339,7 +444,7 @@ def explain_failure(text: str, os_name: Optional[str]) -> Optional[str]:
 
 @dataclasses.dataclass(eq=False)
 class Job:
-    """One vol.py invocation."""
+    """One run of the analysis engine."""
 
     kind: str  # "plugin", "detect_windows" or "detect_banners"
     plugin: str
@@ -361,7 +466,7 @@ class Job:
         return self.renderer == "csv"
 
     def command(self) -> List[str]:
-        cmd = [sys.executable, "-u", str(VOL_PY), "-f", self.dump, "-r", self.renderer]
+        cmd = engine_command() + ["-f", self.dump, "-r", self.renderer]
         if self.dump_dir:
             cmd += ["-o", str(self.dump_dir)]
         return cmd + [self.plugin] + self.extra_args
@@ -913,6 +1018,13 @@ class VolatilityGUI(tk.Tk):
         self.progress.configure(value=value)
         self.percent_var.set(f"{value:.0f}%" if value else "")
 
+    def _set_busy(self, busy: bool) -> None:
+        """Runs the bar on its own; vol-rs prints no progress to measure it by."""
+        self.progress.stop()
+        self.progress.configure(mode="indeterminate" if busy else "determinate")
+        if busy:
+            self.progress.start(15)
+
     # ----------------------------------------------------------- logging
 
     def write_log(self, text: str, tag: Optional[str] = None) -> None:
@@ -1440,17 +1552,20 @@ class VolatilityGUI(tk.Tk):
         if not self.jobs:
             self.batch_total = 0
             self.stop_button.configure(state="disabled")
+            self._set_busy(False)
             self._set_progress(0)
             return
         job = self.jobs.popleft()
         self.current = job
         self.stop_button.configure(state="normal")
         self._set_progress(0)
+        self._set_busy(True)
 
         if job.kind == "plugin":
             done = self.batch_total - sum(1 for queued in self.jobs if queued.kind == "plugin")
             self.write_log(f"\n=== [{done}/{self.batch_total}] {job.plugin} ===\n", "info")
-            self.write_log("$ " + " ".join(shlex.quote(part) for part in job.command()[2:]) + "\n", "info")
+            shown = [Path(part).name if i == 0 else part for i, part in enumerate(job.command())]
+            self.write_log("$ " + " ".join(shlex.quote(part) for part in shown) + "\n", "info")
             self.write_log(
                 "Sedang berjalan... progres ada di kanan bawah. Pertama kali pada sebuah "
                 "dump bisa beberapa menit karena symbol harus disiapkan.\n",
@@ -1474,7 +1589,7 @@ class VolatilityGUI(tk.Tk):
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except OSError as excp:
-            job.errors.append(f"Tidak bisa menjalankan vol.py: {excp}")
+            job.errors.append(f"Tidak bisa menjalankan {Path(job.command()[0]).name}: {excp}")
             self.events.put(("done", job, -1))
             return
         threading.Thread(target=self._pump, args=(job, self.proc), daemon=True).start()
@@ -1652,6 +1767,14 @@ class VolatilityGUI(tk.Tk):
             for failure in event[2]:
                 self.write_log(f"Plugin gagal dimuat: {failure}\n", "stderr")
             self.status_var.set(f"{len(self.catalog)} plugin dimuat. Pilih memory dump untuk mulai.")
+            if using_rust():
+                self.write_log("Engine: vol-rs (Rust).\n", "info")
+            else:
+                self.write_log(
+                    "Engine: vol.py (Python). vol-rs tidak aktif; jalankan "
+                    "install_vol_rs.py untuk memasangnya.\n",
+                    "stderr",
+                )
             self._refresh_plugins()
             return
         if kind == "catalog_error":
@@ -1674,6 +1797,7 @@ class VolatilityGUI(tk.Tk):
                 "info",
             )
         elif kind == "progress":
+            self._set_busy(False)
             self._set_progress(event[2])
             self.status_var.set(f"{job.plugin}: {event[3] or 'memproses'} ({event[2]:.0f}%)")
         elif kind == "done":
@@ -1699,8 +1823,8 @@ class VolatilityGUI(tk.Tk):
 
 
 def main() -> None:
-    if not VOL_PY.is_file():
-        sys.exit(f"vol.py tidak ditemukan di {BASE_DIR}")
+    if not using_rust() and not VOL_PY.is_file():
+        sys.exit(f"vol-rs maupun vol.py tidak ditemukan di {BASE_DIR}")
     VolatilityGUI().mainloop()
 
 

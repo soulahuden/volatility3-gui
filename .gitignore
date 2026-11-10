@@ -49,3 +49,23 @@ ENV/
 
 # Volatility GUI output
 output/
+
+# vol-rs binary, installed by install_vol_rs.py
+bin/
+
+# Kernel symbol (ISF) files added by the user, tens of MB each.
+# The vmcs *-architecture.json files that ship with Volatility stay tracked.
+volatility3/symbols/generic/**/*.json
+!volatility3/symbols/generic/vmcs/*-architecture.json
+*.json.xz
+*.ddeb
+
+# More memory image formats
+*.raw
+*.mem
+*.lime
+*.vmsn
+*.vmss
+*.core
+*.E01
+*.aff4

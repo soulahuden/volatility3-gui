@@ -45,7 +45,7 @@ $ vol -f memory.lime --remote-isf-url '...' linux.pslist   # wait, which plugin 
 | 🚀 | **Run many plugins at once** | `Ctrl/Shift+click` several plugins and they are queued and run one after another. |
 | 💾 | **Output saved automatically** | Every run is saved to its own timestamped file as a clean `.txt` table, `.csv`, `.json` or `.jsonl`. Files extracted with `--dump` go into their own folder. |
 | 📈 | **Real-time progress bar** | See exactly how far Volatility has got instead of staring at a silent terminal. |
-| 🛑 | **A Stop button that really stops** | Each plugin runs in a separate `vol.py` process, so a plugin that hangs or crashes can never freeze the GUI. |
+| 🛑 | **A Stop button that really stops** | Each plugin runs in a separate process, so a plugin that hangs or crashes can never freeze the GUI. |
 | 🩺 | **Human-readable errors** | Common failures (missing symbol table/ISF, corrupt dump, PDB download failed) are explained in plain language with a suggested fix. The full log is kept as an `.error.log` file. |
 | 🌗 | **Dark & light mode** | Switch themes with one click; your choice is remembered. |
 | 🪟 | **WSL friendly** | Paste a Windows path like `C:\dumps\mem.raw` and it becomes `/mnt/c/dumps/mem.raw`. The *open folder* button opens Windows Explorer. |
@@ -73,7 +73,24 @@ cd <repo-name>
 
 ### Install dependencies
 
-The GUI itself **uses only the Python standard library**. The packages below are needed by Volatility 3 plugins:
+The GUI itself **uses only the Python standard library**. Analysis runs on **[vol-rs](https://github.com/daffainfo/vol-rs)**, the Rust port of Volatility 3, which `run_gui.sh` and `run_gui.bat` download into `bin/` on first start. To install it by hand:
+
+```bash
+python install_vol_rs.py
+```
+
+If the binary is missing, or `VOL_GUI_ENGINE=python` is set, the GUI uses `vol.py` instead. The log shows which engine is active at startup.
+
+> ⚠️ The official vol-rs 1.0.2 release can silently miss processes when the process list in a memory image is damaged, which `vol.py` still finds. `patches/vol-rs-1.0.2-list-walk.patch` fixes this. `install_vol_rs.py` installs the official release, so to get the fix, build it with Rust 1.85+ and replace the binary:
+>
+> ```bash
+> git clone --depth 1 --branch v1.0.2 https://github.com/daffainfo/vol-rs
+> git -C vol-rs apply "$PWD/patches/vol-rs-1.0.2-list-walk.patch"
+> (cd vol-rs && cargo build --release)
+> cp vol-rs/target/release/vol-rs bin/vol-rs
+> ```
+
+The packages below are only needed for `vol.py`:
 
 ```bash
 pip install pefile pycryptodome capstone yara-python
@@ -211,19 +228,20 @@ Then run the plugin again from the GUI.
 
 ```text
 ┌──────────────┐  subprocess   ┌──────────────┐
-│  vol_gui.py  │ ────────────▶ │   vol.py     │  (one process per plugin)
-│  (Tkinter)   │ ◀──────────── │ Volatility 3 │
+│  vol_gui.py  │ ────────────▶ │  bin/vol-rs  │  (one process per plugin)
+│  (Tkinter)   │ ◀──────────── │ Rust engine  │
 └──────────────┘  stdout: CSV  └──────────────┘
-       │           stderr: progress & errors
+       │           stderr: errors
        ▼
  interactive table + output file (.txt/.csv/.json/.jsonl)
 ```
 
-The GUI reads the plugin list and each plugin's options straight from the Volatility 3 framework, then runs every analysis as a separate `vol.py` process. CSV output is parsed as it streams in, so the first rows appear before the plugin has even finished.
+The GUI reads the plugin list and each plugin's options from `vol-rs --help`, then runs every analysis as a separate `vol-rs` process, using the symbols in `volatility3/symbols`. vol-rs reports no percentage, so the progress bar only shows that a run is active.
 
 | File | Purpose |
 |---|---|
 | `vol_gui.py` | The GUI application |
+| `install_vol_rs.py` | Downloads the pinned vol-rs release into `bin/` and verifies its checksum |
 | `run_gui.bat` | Windows launcher |
 | `run_gui.sh` | Linux/WSL/macOS launcher (creates `.venv` automatically) |
 | `README-VOLATILITY3.md` | The original Volatility 3 README |
