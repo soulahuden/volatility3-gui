@@ -2,10 +2,11 @@
 
 # ◆ Volatility 3 GUI
 
-### Memory forensics without the command line.
+### Memory forensics without the command line, powered by a 🦀 Rust engine.
 
 **Pick a memory dump → the OS is detected automatically → click a plugin → results show up as an interactive table.**
 
+![Engine](https://img.shields.io/badge/Engine-Rust%20(vol--rs)-CE422B?logo=rust&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20WSL%20%7C%20macOS-2f81f7)
 ![GUI](https://img.shields.io/badge/GUI-Tkinter-8957e5)
@@ -34,17 +35,36 @@ $ vol -f memory.lime --remote-isf-url '...' linux.pslist   # wait, which plugin 
 
 ---
 
+## 🦀 Rust Engine: vol-rs
+
+The analysis is done by **[vol-rs](https://github.com/daffainfo/vol-rs)**, a port of Volatility 3 to **Rust**. It is a single native binary that keeps the plugin names and options of `vol.py`, so nothing new has to be learned.
+
+| | vol-rs (default) | vol.py (fallback) |
+|---|---|---|
+| Language | 🦀 Rust, native binary | 🐍 Python |
+| Installation | Downloaded automatically into `bin/`, checksum verified | Needs Python packages (`pefile`, `capstone`, ...) |
+| Plugins | Same names and options as Volatility 3 | The original Volatility 3 framework |
+| Progress bar | Shows that a run is active (vol-rs reports no percentage) | Shows the percentage |
+
+- `run_gui.sh` and `run_gui.bat` install vol-rs on first start with [`install_vol_rs.py`](install_vol_rs.py). It downloads a pinned release (v1.0.2) for your OS and checks its SHA-256 before using it.
+- The log shows which engine is active each time the GUI starts.
+- vol-rs uses the same symbol folder as `vol.py` (`volatility3/symbols`), so ISF files you have collected work with both.
+- To use `vol.py` instead, set `VOL_GUI_ENGINE=python` before starting the GUI.
+
+---
+
 ## ✨ Features
 
 | | Feature | Description |
 |---|---|---|
+| 🦀 | **Rust analysis engine** | Plugins run on vol-rs, a native Rust build of Volatility 3. `vol.py` takes over automatically if the binary is missing. |
 | 🔍 | **Automatic OS detection** | Just pick a file. The GUI recognises Windows crash dumps from their header, tries `windows.info`, then searches for Linux/Mac kernel banners. The plugin list is filtered to match the OS. |
-| 🧩 | **160+ plugins, nothing to memorise** | Every Volatility 3 plugin is listed with its description, grouped by OS, and searchable. |
+| 🧩 | **190+ plugins, nothing to memorise** | Every plugin is listed with its description, grouped by OS, and searchable. |
 | ⚙️ | **Plugin options become a form** | `--pid`, `--dump`, `--physical` and friends turn into checkboxes, text fields or dropdowns. An *extra arguments* field takes anything else. |
 | 📊 | **Interactive result table** | Sort by any column (click its header), select a row to see its full content, and press `Ctrl+C` to copy rows to the clipboard (ready to paste into Excel). |
 | 🚀 | **Run many plugins at once** | `Ctrl/Shift+click` several plugins and they are queued and run one after another. |
 | 💾 | **Output saved automatically** | Every run is saved to its own timestamped file as a clean `.txt` table, `.csv`, `.json` or `.jsonl`. Files extracted with `--dump` go into their own folder. |
-| 📈 | **Real-time progress bar** | See exactly how far Volatility has got instead of staring at a silent terminal. |
+| 📈 | **Live results and progress** | Rows appear in the table as they stream in, and the progress bar shows a run is still going instead of a silent terminal. |
 | 🛑 | **A Stop button that really stops** | Each plugin runs in a separate process, so a plugin that hangs or crashes can never freeze the GUI. |
 | 🩺 | **Human-readable errors** | Common failures (missing symbol table/ISF, corrupt dump, PDB download failed) are explained in plain language with a suggested fix. The full log is kept as an `.error.log` file. |
 | 🌗 | **Dark & light mode** | Switch themes with one click; your choice is remembered. |
@@ -58,30 +78,30 @@ $ vol -f memory.lime --remote-isf-url '...' linux.pslist   # wait, which plugin 
 
 ### Requirements
 
-- **Python 3.8+**
+- **Python 3.8+** (for the GUI itself)
 - **Tkinter**
   - Windows & macOS: included with the Python installer from [python.org](https://www.python.org/downloads/).
   - Debian/Ubuntu/WSL: `sudo apt install python3-tk python3-venv`
-- An internet connection (to download Windows PDB symbols the first time a dump is analysed).
+- An internet connection, to download vol-rs on first start and Windows PDB symbols the first time a dump is analysed.
 
 ### Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/soulahuden/volatility3-gui.git
+cd volatility3-gui
 ```
 
-### Install dependencies
+### Install the Rust engine
 
-The GUI itself **uses only the Python standard library**. Analysis runs on **[vol-rs](https://github.com/daffainfo/vol-rs)**, the Rust port of Volatility 3, which `run_gui.sh` and `run_gui.bat` download into `bin/` on first start. To install it by hand:
+The GUI itself **uses only the Python standard library**. The launchers (`run_gui.sh`, `run_gui.bat`) install vol-rs into `bin/` for you. To install it by hand:
 
 ```bash
-python install_vol_rs.py
+python install_vol_rs.py           # add --force to replace an installed binary
 ```
 
-If the binary is missing, or `VOL_GUI_ENGINE=python` is set, the GUI uses `vol.py` instead. The log shows which engine is active at startup.
+Prebuilt binaries are available for Linux (x86_64, arm64), macOS (x86_64, arm64) and Windows (x86_64).
 
-> ⚠️ The official vol-rs 1.0.2 release can silently miss processes when the process list in a memory image is damaged, which `vol.py` still finds. `patches/vol-rs-1.0.2-list-walk.patch` fixes this. `install_vol_rs.py` installs the official release, so to get the fix, build it with Rust 1.85+ and replace the binary:
+> ⚠️ **Known issue in vol-rs 1.0.2:** it can silently miss processes when the process list in a memory image is damaged, which `vol.py` still finds. [`patches/vol-rs-1.0.2-list-walk.patch`](patches/vol-rs-1.0.2-list-walk.patch) fixes this. `install_vol_rs.py` installs the official release, so to get the fix, build it with Rust 1.85+ and replace the binary:
 >
 > ```bash
 > git clone --depth 1 --branch v1.0.2 https://github.com/daffainfo/vol-rs
@@ -90,7 +110,9 @@ If the binary is missing, or `VOL_GUI_ENGINE=python` is set, the GUI uses `vol.p
 > cp vol-rs/target/release/vol-rs bin/vol-rs
 > ```
 
-The packages below are only needed for `vol.py`:
+### Python fallback (optional)
+
+These packages are only needed if you run on `vol.py` instead of vol-rs:
 
 ```bash
 pip install pefile pycryptodome capstone yara-python
@@ -108,9 +130,10 @@ pip install -e ".[full]"
 
 ### Windows
 
-Double-click **`run_gui.bat`**, or from Command Prompt/PowerShell:
+Double-click **`run_gui.bat`**. It installs vol-rs if needed, then opens the GUI. From Command Prompt/PowerShell:
 
 ```bat
+python install_vol_rs.py
 python vol_gui.py
 ```
 
@@ -121,11 +144,12 @@ chmod +x run_gui.sh
 ./run_gui.sh
 ```
 
-On first run, `run_gui.sh` creates a `.venv` virtualenv and installs the dependencies. After that it opens the GUI straight away.
+On first run, `run_gui.sh` creates a `.venv` virtualenv, installs the Python fallback dependencies and downloads vol-rs. After that it opens the GUI straight away.
 
 Or run it manually:
 
 ```bash
+python3 install_vol_rs.py
 python3 vol_gui.py
 ```
 
@@ -160,7 +184,7 @@ If detection fails but you know the dump is valid, pick the OS from the **Pilih 
 ### 5. Read the results
 
 - **Hasil** (*Results*) tab: the interactive table. Click a header to sort, click a row to see its full content in the bottom panel, `Ctrl+C` to copy.
-- **Log** tab: the exact `vol.py` command that was run, progress, warnings and error explanations.
+- **Log** tab: the active engine, the exact `vol-rs` (or `vol.py`) command that was run, warnings and error explanations.
 - Click **Buka folder** (*Open folder*) to open the output folder.
 
 ### Output layout
@@ -191,23 +215,27 @@ output/
 
 ## 🐧 Tip: Linux Memory Dumps
 
-For Linux, Volatility needs a **symbol table (ISF)** that exactly matches the kernel in the dump. If you see *"symbol table requirement was not fulfilled"*, there are two fixes:
+For Linux, Volatility needs a **symbol table (ISF)** that exactly matches the kernel in the dump. If you see *"symbol table requirement was not fulfilled"*, there are two fixes.
 
-**A. Use a remote ISF** (easiest). `--remote-isf-url` is a global Volatility option (it goes before the plugin name), so it can't be set through the *extra arguments* field. Run it from a terminal:
+> 📘 Step-by-step guide (in Indonesian): **[tutorial-install-symbol.md](tutorial-install-symbol.md)**. It covers reading the kernel banner, finding the matching ISF, and building one with dwarf2json.
+
+**A. Use a remote ISF** (easiest). `--remote-isf-url` is a global option (it goes before the plugin name), so it can't be set through the *extra arguments* field. Run it from a terminal:
 
 ```bash
-python3 vol.py -f memory.lime \
+./bin/vol-rs -f memory.lime \
   --remote-isf-url 'https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json' \
   linux.pslist
 ```
 
-**B. Build your own ISF** with [dwarf2json](https://github.com/volatilityfoundation/dwarf2json) for the kernel banner (see the output of the `banners.Banners` plugin), then place the `.json.xz` file in:
+On Windows use `bin\vol-rs.exe`, or `python3 vol.py` with the same options for the Python engine.
+
+**B. Download or build the ISF yourself.** Get a ready-made one from [Abyss-W4tcher/volatility3-symbols](https://github.com/Abyss-W4tcher/volatility3-symbols), or build it with [dwarf2json](https://github.com/volatilityfoundation/dwarf2json) for the kernel banner (see the output of the `banners.Banners` plugin). Then place the `.json.xz` file in:
 
 ```text
 volatility3/symbols/linux/
 ```
 
-Then run the plugin again from the GUI.
+Then run the plugin again from the GUI. ISF files are in `.gitignore` because they are tens of MB each.
 
 ---
 
@@ -215,6 +243,9 @@ Then run the plugin again from the GUI.
 
 | Problem | Fix |
 |---|---|
+| Log says *Engine: vol.py (Python)* | vol-rs is not installed. Run `python install_vol_rs.py`, and check that `VOL_GUI_ENGINE` is not set to `python`. |
+| `install_vol_rs.py` fails | Check your internet connection. If there is no prebuilt binary for your OS/CPU, build vol-rs from source with `cargo build --release` and copy it into `bin/`. |
+| A process you expected is missing | vol-rs 1.0.2 can miss processes on a damaged process list. Apply the patch (see [Installation](#-installation)) or compare with `VOL_GUI_ENGINE=python`. |
 | `ModuleNotFoundError: No module named 'tkinter'` | Install Tkinter: `sudo apt install python3-tk` |
 | GUI doesn't appear on WSL | Make sure you're on WSL2 with WSLg (Windows 11), or run `run_gui.bat` directly on Windows. |
 | *Windows symbol table not found* | Volatility needs to download PDBs from Microsoft's symbol server. Check your internet connection and try again. |
@@ -227,44 +258,47 @@ Then run the plugin again from the GUI.
 ## 🧱 How It Works
 
 ```text
-┌──────────────┐  subprocess   ┌──────────────┐
-│  vol_gui.py  │ ────────────▶ │  bin/vol-rs  │  (one process per plugin)
-│  (Tkinter)   │ ◀──────────── │ Rust engine  │
-└──────────────┘  stdout: CSV  └──────────────┘
+┌──────────────┐  subprocess   ┌──────────────────┐
+│  vol_gui.py  │ ────────────▶ │  bin/vol-rs  🦀  │  (one process per plugin)
+│  (Tkinter)   │ ◀──────────── │  Rust engine     │  fallback: vol.py
+└──────────────┘  stdout: CSV  └──────────────────┘
        │           stderr: errors
        ▼
  interactive table + output file (.txt/.csv/.json/.jsonl)
 ```
 
-The GUI reads the plugin list and each plugin's options from `vol-rs --help`, then runs every analysis as a separate `vol-rs` process, using the symbols in `volatility3/symbols`. vol-rs reports no percentage, so the progress bar only shows that a run is active.
+The GUI reads the plugin list and each plugin's options from `vol-rs --list-plugins` and `vol-rs <plugin> --help`, then runs every analysis as a separate `vol-rs` process, using the symbols in `volatility3/symbols`. CSV output is parsed as it streams in, so the first rows appear before the plugin has finished.
 
 | File | Purpose |
 |---|---|
 | `vol_gui.py` | The GUI application |
 | `install_vol_rs.py` | Downloads the pinned vol-rs release into `bin/` and verifies its checksum |
-| `run_gui.bat` | Windows launcher |
-| `run_gui.sh` | Linux/WSL/macOS launcher (creates `.venv` automatically) |
+| `patches/vol-rs-1.0.2-list-walk.patch` | Fix for vol-rs 1.0.2 missing processes on a damaged process list |
+| `run_gui.bat` | Windows launcher (installs vol-rs, then opens the GUI) |
+| `run_gui.sh` | Linux/WSL/macOS launcher (creates `.venv`, installs vol-rs) |
+| `tutorial-install-symbol.md` | Guide to installing Linux symbol tables (ISF), in Indonesian |
 | `README-VOLATILITY3.md` | The original Volatility 3 README |
 
 ---
 
 ## 🙏 Credits & Original Source
 
-This GUI is **only a front-end**. All of the memory forensics capability comes from **Volatility 3**, developed and maintained by **[The Volatility Foundation](https://volatilityfoundation.org/)**.
+This GUI is **only a front-end**. All of the memory forensics capability comes from **Volatility 3**, developed and maintained by **[The Volatility Foundation](https://volatilityfoundation.org/)**, and from its Rust port **vol-rs**.
 
-- 🔗 Official repository: **[github.com/volatilityfoundation/volatility3](https://github.com/volatilityfoundation/volatility3)**
+- 🦀 Rust engine: **[daffainfo/vol-rs](https://github.com/daffainfo/vol-rs)**
+- 🔗 Volatility 3 repository: **[github.com/volatilityfoundation/volatility3](https://github.com/volatilityfoundation/volatility3)**
 - 📖 Documentation: **[volatility3.readthedocs.io](https://volatility3.readthedocs.io/)**
 - 🌐 Website: **[volatilityfoundation.org](https://volatilityfoundation.org/)**
 - 🧬 Symbol tooling: **[dwarf2json](https://github.com/volatilityfoundation/dwarf2json)**
 - 🐧 Ready-made Linux ISFs: **[Abyss-W4tcher/volatility3-symbols](https://github.com/Abyss-W4tcher/volatility3-symbols)**
 
-Huge thanks to all Volatility developers and contributors for this outstanding open-source work. The original Volatility 3 README is available in [`README-VOLATILITY3.md`](README-VOLATILITY3.md).
+Huge thanks to the Volatility and vol-rs developers and contributors for this outstanding open-source work. The original Volatility 3 README is available in [`README-VOLATILITY3.md`](README-VOLATILITY3.md).
 
 ---
 
 ## 📜 License
 
-Volatility 3 is released under the **[Volatility Software License (VSL) v1.0](https://www.volatilityfoundation.org/license/vsl-v1.0)**. See [`LICENSE.txt`](LICENSE.txt). This GUI is distributed under the same license.
+Volatility 3 is released under the **[Volatility Software License (VSL) v1.0](https://www.volatilityfoundation.org/license/vsl-v1.0)**. See [`LICENSE.txt`](LICENSE.txt). This GUI is distributed under the same license. vol-rs is distributed under its own license; see its [repository](https://github.com/daffainfo/vol-rs).
 
 ---
 
