@@ -49,11 +49,15 @@ def read_member(archive: bytes, name: str) -> bytes:
     stream = io.BytesIO(archive)
     if zipfile.is_zipfile(stream):
         with zipfile.ZipFile(stream) as package:
-            member = next(item for item in package.namelist() if item.endswith("/" + name))
+            member = next(
+                item for item in package.namelist() if item.endswith("/" + name)
+            )
             return package.read(member)
     stream.seek(0)
     with tarfile.open(fileobj=stream, mode="r:gz") as package:
-        member = next(item for item in package.getmembers() if item.name.endswith("/" + name))
+        member = next(
+            item for item in package.getmembers() if item.name.endswith("/" + name)
+        )
         return package.extractfile(member).read()
 
 
@@ -61,7 +65,9 @@ def main() -> int:
     system, machine = platform.system(), platform.machine()
     release = RELEASES.get((system, machine.lower()))
     if release is None:
-        print(f"vol-rs {VERSION} has no release for {system} {machine}", file=sys.stderr)
+        print(
+            f"vol-rs {VERSION} has no release for {system} {machine}", file=sys.stderr
+        )
         return 1
     suffix, checksum = release
 

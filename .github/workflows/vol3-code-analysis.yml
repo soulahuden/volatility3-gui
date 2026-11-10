@@ -1,5 +1,24 @@
 name: Volatility3 Code Analysis
-on: [push, pull_request]
+# Upstream Volatility 3 checks: only run when the framework changes,
+# not on GUI or docs changes. Run by hand from the Actions tab.
+on:
+  push:
+    paths:
+      - "volatility3/**"
+      - "test/**"
+      - "vol.py"
+      - "volshell.py"
+      - "pyproject.toml"
+      - ".github/workflows/vol3-code-analysis.yml"
+  pull_request:
+    paths:
+      - "volatility3/**"
+      - "test/**"
+      - "vol.py"
+      - "volshell.py"
+      - "pyproject.toml"
+      - ".github/workflows/vol3-code-analysis.yml"
+  workflow_dispatch:
 jobs:
 
   build:

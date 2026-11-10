@@ -1,5 +1,24 @@
 name: Test Volatility3
-on: [push, pull_request]
+# Upstream Volatility 3 checks: only run when the framework changes,
+# not on GUI or docs changes. Run by hand from the Actions tab.
+on:
+  push:
+    paths:
+      - "volatility3/**"
+      - "test/**"
+      - "vol.py"
+      - "volshell.py"
+      - "pyproject.toml"
+      - ".github/workflows/test.yaml"
+  pull_request:
+    paths:
+      - "volatility3/**"
+      - "test/**"
+      - "vol.py"
+      - "volshell.py"
+      - "pyproject.toml"
+      - ".github/workflows/test.yaml"
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-22.04

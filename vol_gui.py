@@ -249,7 +249,9 @@ def load_rust_catalog() -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
     listing = run("--list-plugins")
     if listing.returncode != 0:
         raise RuntimeError(f"vol-rs --list-plugins: {listing.stderr.strip()}")
-    names = sorted(line.split()[0] for line in listing.stdout.splitlines() if line.strip())
+    names = sorted(
+        line.split()[0] for line in listing.stdout.splitlines() if line.strip()
+    )
 
     catalog: Dict[str, Dict[str, Any]] = {}
     failures: List[str] = []
@@ -358,17 +360,25 @@ def format_table(columns: List[str], rows: List[Row]) -> str:
         table.append(cells)
 
     natural = [
-        max(len(columns[i]), max(len(line) for cells in table for line in cells[i].split("\n")))
+        max(
+            len(columns[i]),
+            max(len(line) for cells in table for line in cells[i].split("\n")),
+        )
         for i in range(count)
     ]
     # Multi-line values (hexdumps, disassembly) cannot sit side by side in a table
     multiline = any("\n" in cell for cells in table for cell in cells)
-    few_wide = len(table) <= VERTICAL_MAX_ROWS and sum(natural) + 2 * count > VERTICAL_MIN_WIDTH
+    few_wide = (
+        len(table) <= VERTICAL_MAX_ROWS
+        and sum(natural) + 2 * count > VERTICAL_MIN_WIDTH
+    )
     if multiline or few_wide:
         records = [format_record(columns, cells) for cells in table]
         if len(records) == 1:
             return records[0]
-        return "\n".join(f"--- Baris {n} ---\n{record}" for n, record in enumerate(records, 1))
+        return "\n".join(
+            f"--- Baris {n} ---\n{record}" for n, record in enumerate(records, 1)
+        )
 
     widths = [min(width, MAX_COLUMN_WIDTH) for width in natural]
     numeric = [all(INTEGER_RE.match(cells[i]) for cells in table) for i in range(count)]
@@ -387,12 +397,16 @@ def format_table(columns: List[str], rows: List[Row]) -> str:
             lines: List[str] = []
             for line in cell.split("\n"):
                 if i < count - 1 and len(line) > widths[i]:
-                    lines += [line[k : k + widths[i]] for k in range(0, len(line), widths[i])]
+                    lines += [
+                        line[k : k + widths[i]] for k in range(0, len(line), widths[i])
+                    ]
                 else:
                     lines.append(line)
             wrapped.append(lines)
         for k in range(max(len(lines) for lines in wrapped)):
-            out.append(render([lines[k] if k < len(lines) else "" for lines in wrapped]))
+            out.append(
+                render([lines[k] if k < len(lines) else "" for lines in wrapped])
+            )
     return "\n".join(out) + "\n"
 
 
@@ -484,7 +498,7 @@ class VolatilityGUI(tk.Tk):
         self.catalog: Dict[str, Dict[str, Any]] = {}
         self.option_vars: Dict[str, Dict[str, tk.Variable]] = {}
         self.extra_vars: Dict[str, tk.StringVar] = {}
-        self.events: "queue.Queue[Tuple[Any, ...]]" = queue.Queue()
+        self.events: queue.Queue[Tuple[Any, ...]] = queue.Queue()
         self.jobs: Deque[Job] = collections.deque()
         self.current: Optional[Job] = None
         self.proc: Optional[subprocess.Popen] = None
@@ -496,7 +510,9 @@ class VolatilityGUI(tk.Tk):
         self.table_shown = 0
         self.table_chars: List[int] = []
         self.table_sort: Tuple[int, bool] = (-1, False)
-        self.badge_state = "idle"  # "idle", "detecting" or "failed" while no OS is chosen
+        self.badge_state = (
+            "idle"  # "idle", "detecting" or "failed" while no OS is chosen
+        )
         self.theme = self._load_settings().get("theme", "dark")
         if self.theme not in THEMES:
             self.theme = "dark"
@@ -508,7 +524,9 @@ class VolatilityGUI(tk.Tk):
         self.filter_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Memuat daftar plugin...")
         self.detect_var = tk.StringVar(value="Belum ada memory dump yang dipilih.")
-        self.result_var = tk.StringVar(value="Belum ada hasil. Jalankan plugin untuk melihatnya di sini.")
+        self.result_var = tk.StringVar(
+            value="Belum ada hasil. Jalankan plugin untuk melihatnya di sini."
+        )
         self.file_info_var = tk.StringVar(value="")
         self.details_title = tk.StringVar(value="OPSI PLUGIN")
         self.percent_var = tk.StringVar(value="")
@@ -529,13 +547,23 @@ class VolatilityGUI(tk.Tk):
 
         families = set(tkfont.families(self))
         ui = next(
-            (f for f in ("Segoe UI", "Inter", "Ubuntu", "Noto Sans", "DejaVu Sans") if f in families),
+            (
+                f
+                for f in ("Segoe UI", "Inter", "Ubuntu", "Noto Sans", "DejaVu Sans")
+                if f in families
+            ),
             tkfont.nametofont("TkDefaultFont").actual("family"),
         )
         mono = next(
             (
                 f
-                for f in ("Cascadia Mono", "Consolas", "JetBrains Mono", "DejaVu Sans Mono", "Ubuntu Mono")
+                for f in (
+                    "Cascadia Mono",
+                    "Consolas",
+                    "JetBrains Mono",
+                    "DejaVu Sans Mono",
+                    "Ubuntu Mono",
+                )
                 if f in families
             ),
             tkfont.nametofont("TkFixedFont").actual("family"),
@@ -602,7 +630,11 @@ class VolatilityGUI(tk.Tk):
         )
         style.map(
             "TButton",
-            background=[("disabled", p["panel"]), ("pressed", p["border"]), ("active", p["border"])],
+            background=[
+                ("disabled", p["panel"]),
+                ("pressed", p["border"]),
+                ("active", p["border"]),
+            ],
             foreground=[("disabled", p["muted"])],
             lightcolor=[("active", p["border"])],
             darkcolor=[("active", p["border"])],
@@ -623,7 +655,11 @@ class VolatilityGUI(tk.Tk):
             )
             style.map(
                 name,
-                background=[("disabled", p["raised"]), ("pressed", hover), ("active", hover)],
+                background=[
+                    ("disabled", p["raised"]),
+                    ("pressed", hover),
+                    ("active", hover),
+                ],
                 foreground=[("disabled", p["muted"])],
                 bordercolor=[("disabled", p["border"]), ("active", hover)],
                 lightcolor=[("disabled", p["raised"]), ("active", hover)],
@@ -639,8 +675,18 @@ class VolatilityGUI(tk.Tk):
             "insertcolor": p["text"],
         }
         style.configure("TEntry", padding=(8, 5), **field)
-        style.map("TEntry", bordercolor=[("focus", p["accent"])], lightcolor=[("focus", p["accent"])])
-        style.configure("TCombobox", padding=(8, 4), background=p["raised"], arrowcolor=p["muted"], **field)
+        style.map(
+            "TEntry",
+            bordercolor=[("focus", p["accent"])],
+            lightcolor=[("focus", p["accent"])],
+        )
+        style.configure(
+            "TCombobox",
+            padding=(8, 4),
+            background=p["raised"],
+            arrowcolor=p["muted"],
+            **field,
+        )
         style.map(
             "TCombobox",
             fieldbackground=[("readonly", p["input"])],
@@ -681,7 +727,11 @@ class VolatilityGUI(tk.Tk):
             darkcolor=p["panel"],
             rowheight=26,
         )
-        style.map("Treeview", background=[("selected", p["select"])], foreground=[("selected", p["text"])])
+        style.map(
+            "Treeview",
+            background=[("selected", p["select"])],
+            foreground=[("selected", p["text"])],
+        )
         style.configure(
             "Treeview.Heading",
             background=p["raised"],
@@ -695,7 +745,12 @@ class VolatilityGUI(tk.Tk):
         )
         style.map("Treeview.Heading", background=[("active", p["border"])])
 
-        style.configure("TNotebook", background=p["panel"], bordercolor=p["border"], tabmargins=(0, 0, 0, 0))
+        style.configure(
+            "TNotebook",
+            background=p["panel"],
+            bordercolor=p["border"],
+            tabmargins=(0, 0, 0, 0),
+        )
         style.configure(
             "TNotebook.Tab",
             background=p["panel"],
@@ -735,7 +790,12 @@ class VolatilityGUI(tk.Tk):
         )
         style.configure("TPanedwindow", background=p["bg"])
         style.configure(
-            "Sash", sashthickness=12, gripcount=0, background=p["bg"], lightcolor=p["bg"], bordercolor=p["bg"]
+            "Sash",
+            sashthickness=12,
+            gripcount=0,
+            background=p["bg"],
+            lightcolor=p["bg"],
+            bordercolor=p["bg"],
         )
 
         for text in (self.log, self.detail):
@@ -754,7 +814,9 @@ class VolatilityGUI(tk.Tk):
         self.options_canvas.configure(background=p["panel"])
         self.tree.tag_configure("group", foreground=p["accent"], font=self.font_bold)
         self.table.tag_configure("odd", background=p["stripe"])
-        self.theme_button.configure(text="☀  Mode terang" if self.theme == "dark" else "☾  Mode gelap")
+        self.theme_button.configure(
+            text="☀  Mode terang" if self.theme == "dark" else "☾  Mode gelap"
+        )
         self._update_badge()
 
     def toggle_theme(self) -> None:
@@ -787,7 +849,9 @@ class VolatilityGUI(tk.Tk):
             background, foreground, text = p["danger"], "#ffffff", "TIDAK TERBACA"
         else:
             background, foreground, text = p["raised"], p["muted"], "BELUM ADA DUMP"
-        self.badge.configure(text=f"  {text}  ", background=background, foreground=foreground)
+        self.badge.configure(
+            text=f"  {text}  ", background=background, foreground=foreground
+        )
 
     def _card(self, parent: tk.Widget, title: Any) -> Tuple[ttk.Frame, ttk.Frame]:
         """A bordered panel with a small heading; returns the panel and its body."""
@@ -813,9 +877,13 @@ class VolatilityGUI(tk.Tk):
         ).pack(anchor="w")
         self.theme_button = ttk.Button(header, command=self.toggle_theme)
         self.theme_button.pack(side="right")
-        self.badge = tk.Label(header, font=self.font_section, padx=10, pady=5, borderwidth=0)
+        self.badge = tk.Label(
+            header, font=self.font_section, padx=10, pady=5, borderwidth=0
+        )
         self.badge.pack(side="right", padx=(0, 14))
-        ttk.Label(header, text="Sistem operasi", style="Hint.TLabel").pack(side="right", padx=(0, 8))
+        ttk.Label(header, text="Sistem operasi", style="Hint.TLabel").pack(
+            side="right", padx=(0, 8)
+        )
         ttk.Frame(self, style="Line.TFrame", height=1).pack(fill="x")
 
         # Status bar, packed before the body so it survives a small window
@@ -823,24 +891,37 @@ class VolatilityGUI(tk.Tk):
         status.pack(side="bottom", fill="x")
         ttk.Frame(self, style="Line.TFrame", height=1).pack(side="bottom", fill="x")
         self.run_button = ttk.Button(
-            status, text="▶  Jalankan plugin", style="Accent.TButton", command=self.run_selected
+            status,
+            text="▶  Jalankan plugin",
+            style="Accent.TButton",
+            command=self.run_selected,
         )
         self.run_button.pack(side="left")
         self.stop_button = ttk.Button(
-            status, text="■  Stop", style="Danger.TButton", command=self.stop, state="disabled"
+            status,
+            text="■  Stop",
+            style="Danger.TButton",
+            command=self.stop,
+            state="disabled",
         )
         self.stop_button.pack(side="left", padx=8)
-        ttk.Button(status, text="Bersihkan log", command=self.clear_log).pack(side="left")
-        ttk.Label(status, textvariable=self.percent_var, style="Hint.TLabel", width=5, anchor="e").pack(
-            side="right"
+        ttk.Button(status, text="Bersihkan log", command=self.clear_log).pack(
+            side="left"
         )
+        ttk.Label(
+            status,
+            textvariable=self.percent_var,
+            style="Hint.TLabel",
+            width=5,
+            anchor="e",
+        ).pack(side="right")
         self.progress = ttk.Progressbar(
             status, length=220, maximum=100, style="Accent.Horizontal.TProgressbar"
         )
         self.progress.pack(side="right", padx=(0, 6))
-        ttk.Label(status, textvariable=self.status_var, style="Hint.TLabel", anchor="e").pack(
-            side="right", fill="x", expand=True, padx=12
-        )
+        ttk.Label(
+            status, textvariable=self.status_var, style="Hint.TLabel", anchor="e"
+        ).pack(side="right", fill="x", expand=True, padx=12)
 
         body = ttk.Frame(self, style="Bg.TFrame", padding=(14, 12, 14, 12))
         body.pack(fill="both", expand=True)
@@ -849,18 +930,25 @@ class VolatilityGUI(tk.Tk):
         card, evidence = self._card(body, "BARANG BUKTI")
         card.pack(fill="x")
         evidence.columnconfigure(1, weight=1)
-        ttk.Label(evidence, text="Memory dump").grid(row=0, column=0, sticky="w", padx=(0, 12))
+        ttk.Label(evidence, text="Memory dump").grid(
+            row=0, column=0, sticky="w", padx=(0, 12)
+        )
         dump_entry = ttk.Entry(evidence, textvariable=self.dump_var)
         dump_entry.grid(row=0, column=1, sticky="ew")
         dump_entry.bind("<Return>", lambda _e: self.detect_os())
         ttk.Button(
-            evidence, text="Pilih file...", style="Accent.TButton", command=self.choose_dump
+            evidence,
+            text="Pilih file...",
+            style="Accent.TButton",
+            command=self.choose_dump,
         ).grid(row=0, column=2, sticky="ew", padx=(8, 0))
         ttk.Button(evidence, text="Deteksi ulang", command=self.detect_os).grid(
             row=0, column=3, sticky="ew", padx=(8, 0)
         )
 
-        ttk.Label(evidence, text="Folder output").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(evidence, text="Folder output").grid(
+            row=1, column=0, sticky="w", pady=(8, 0)
+        )
         outdir_entry = ttk.Entry(evidence, textvariable=self.outdir_var)
         outdir_entry.grid(row=1, column=1, sticky="ew", pady=(8, 0))
         outdir_entry.bind("<Key>", lambda _e: setattr(self, "_outdir_auto", False))
@@ -874,17 +962,31 @@ class VolatilityGUI(tk.Tk):
         info = ttk.Frame(evidence)
         info.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(10, 0))
         ttk.Label(info, textvariable=self.file_info_var).pack(side="left")
-        ttk.Label(info, textvariable=self.detect_var, style="Hint.TLabel").pack(side="left", padx=(12, 0))
+        ttk.Label(info, textvariable=self.detect_var, style="Hint.TLabel").pack(
+            side="left", padx=(12, 0)
+        )
         ttk.Combobox(
-            info, textvariable=self.format_var, values=list(RENDERERS), state="readonly", width=18
+            info,
+            textvariable=self.format_var,
+            values=list(RENDERERS),
+            state="readonly",
+            width=18,
         ).pack(side="right")
-        ttk.Label(info, text="Format output", style="Hint.TLabel").pack(side="right", padx=(16, 8))
+        ttk.Label(info, text="Format output", style="Hint.TLabel").pack(
+            side="right", padx=(16, 8)
+        )
         self.os_combo = ttk.Combobox(
-            info, textvariable=self.os_var, values=list(OS_LABELS.values()), state="readonly", width=9
+            info,
+            textvariable=self.os_var,
+            values=list(OS_LABELS.values()),
+            state="readonly",
+            width=9,
         )
         self.os_combo.pack(side="right")
         self.os_combo.bind("<<ComboboxSelected>>", lambda _e: self._refresh_plugins())
-        ttk.Label(info, text="Pilih OS manual", style="Hint.TLabel").pack(side="right", padx=(0, 8))
+        ttk.Label(info, text="Pilih OS manual", style="Hint.TLabel").pack(
+            side="right", padx=(0, 8)
+        )
 
         panes = ttk.PanedWindow(body, orient="horizontal")
         panes.pack(fill="both", expand=True, pady=(12, 0))
@@ -894,8 +996,12 @@ class VolatilityGUI(tk.Tk):
         panes.add(card, weight=2)
         search = ttk.Frame(left)
         search.pack(fill="x", pady=(0, 8))
-        ttk.Label(search, text="Cari", style="Hint.TLabel").pack(side="left", padx=(0, 8))
-        ttk.Entry(search, textvariable=self.filter_var).pack(side="left", fill="x", expand=True)
+        ttk.Label(search, text="Cari", style="Hint.TLabel").pack(
+            side="left", padx=(0, 8)
+        )
+        ttk.Entry(search, textvariable=self.filter_var).pack(
+            side="left", fill="x", expand=True
+        )
         self.filter_var.trace_add("write", lambda *_a: self._refresh_plugins())
 
         tree_frame = ttk.Frame(left)
@@ -907,7 +1013,9 @@ class VolatilityGUI(tk.Tk):
         self.tree.heading("doc", text="DESKRIPSI", anchor="w")
         self.tree.column("#0", width=240, stretch=False)
         self.tree.column("doc", width=320)
-        tree_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        tree_scroll = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.tree.yview
+        )
         self.tree.configure(yscrollcommand=tree_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         tree_scroll.pack(side="right", fill="y")
@@ -928,7 +1036,9 @@ class VolatilityGUI(tk.Tk):
 
         self.details, details_body = self._card(right, self.details_title)
         right.add(self.details, weight=1)
-        self.options_canvas = tk.Canvas(details_body, highlightthickness=0, borderwidth=0, height=150)
+        self.options_canvas = tk.Canvas(
+            details_body, highlightthickness=0, borderwidth=0, height=150
+        )
         options_scroll = ttk.Scrollbar(
             details_body, orient="vertical", command=self.options_canvas.yview
         )
@@ -947,7 +1057,9 @@ class VolatilityGUI(tk.Tk):
         )
         self.options_canvas.bind(
             "<Configure>",
-            lambda e: self.options_canvas.itemconfigure(self._options_window, width=e.width),
+            lambda e: self.options_canvas.itemconfigure(
+                self._options_window, width=e.width
+            ),
         )
 
         card, output = self._card(right, "OUTPUT")
@@ -959,12 +1071,18 @@ class VolatilityGUI(tk.Tk):
         self.notebook.add(self.result_tab, text="Hasil")
         self.result_tab.rowconfigure(1, weight=1)
         self.result_tab.columnconfigure(0, weight=1)
-        ttk.Label(self.result_tab, textvariable=self.result_var, style="Hint.TLabel").grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(0, 6)
+        ttk.Label(
+            self.result_tab, textvariable=self.result_var, style="Hint.TLabel"
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        self.table = ttk.Treeview(
+            self.result_tab, show="headings", selectmode="extended"
         )
-        self.table = ttk.Treeview(self.result_tab, show="headings", selectmode="extended")
-        table_y = ttk.Scrollbar(self.result_tab, orient="vertical", command=self.table.yview)
-        table_x = ttk.Scrollbar(self.result_tab, orient="horizontal", command=self.table.xview)
+        table_y = ttk.Scrollbar(
+            self.result_tab, orient="vertical", command=self.table.yview
+        )
+        table_x = ttk.Scrollbar(
+            self.result_tab, orient="horizontal", command=self.table.xview
+        )
         self.table.configure(yscrollcommand=table_y.set, xscrollcommand=table_x.set)
         self.table.grid(row=1, column=0, sticky="nsew")
         table_y.grid(row=1, column=1, sticky="ns")
@@ -984,7 +1102,9 @@ class VolatilityGUI(tk.Tk):
             padx=10,
             pady=8,
         )
-        detail_y = ttk.Scrollbar(self.result_tab, orient="vertical", command=self.detail.yview)
+        detail_y = ttk.Scrollbar(
+            self.result_tab, orient="vertical", command=self.detail.yview
+        )
         self.detail.configure(yscrollcommand=detail_y.set)
         self.detail.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         detail_y.grid(row=3, column=1, sticky="ns", pady=(8, 0))
@@ -1051,7 +1171,9 @@ class VolatilityGUI(tk.Tk):
         self.table.configure(columns=ids, displaycolumns=ids)
         self.table_chars = []
         for i, name in enumerate(job.columns):
-            self.table.heading(ids[i], text=name, anchor="w", command=lambda i=i: self._sort_table(i))
+            self.table.heading(
+                ids[i], text=name, anchor="w", command=lambda i=i: self._sort_table(i)
+            )
             self.table.column(
                 ids[i],
                 width=self.table_font.measure(name) + 28,
@@ -1066,7 +1188,12 @@ class VolatilityGUI(tk.Tk):
     def _sync_table(self, job: Optional[Job] = None, flush: bool = False) -> None:
         """Copies rows the worker thread has parsed so far into the result table."""
         job = job or self.current
-        if job and job.kind == "plugin" and job.columns is not None and job is not self.table_job:
+        if (
+            job
+            and job.kind == "plugin"
+            and job.columns is not None
+            and job is not self.table_job
+        ):
             self._table_begin(job)
         job = self.table_job
         if not job or job.columns is None:
@@ -1095,7 +1222,13 @@ class VolatilityGUI(tk.Tk):
                     if width > int(self.table.column(ids[i], "width")):
                         self.table.column(ids[i], width=width)
                 values.append(text)
-            self.table.insert("", "end", iid=str(index), values=values, tags=("odd",) if index % 2 else ())
+            self.table.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=values,
+                tags=("odd",) if index % 2 else (),
+            )
         self.table_shown = max(self.table_shown, end)
         note = ""
         if total > MAX_TABLE_ROWS:
@@ -1113,7 +1246,9 @@ class VolatilityGUI(tk.Tk):
             cells = job.rows[int(iid)][1]
             return sort_key(cells[column] if column < len(cells) else "")
 
-        for position, iid in enumerate(sorted(self.table.get_children(), key=key, reverse=reverse)):
+        for position, iid in enumerate(
+            sorted(self.table.get_children(), key=key, reverse=reverse)
+        ):
             self.table.move(iid, "", position)
             self.table.item(iid, tags=("odd",) if position % 2 else ())
 
@@ -1136,7 +1271,12 @@ class VolatilityGUI(tk.Tk):
         if not job or job.columns is None or not selection:
             return
         lines = ["\t".join(job.columns)]
-        lines += ["\t".join(clean_cell(cell).replace("\n", " ") for cell in job.rows[int(iid)][1]) for iid in selection]
+        lines += [
+            "\t".join(
+                clean_cell(cell).replace("\n", " ") for cell in job.rows[int(iid)][1]
+            )
+            for iid in selection
+        ]
         self.clipboard_clear()
         self.clipboard_append("\n".join(lines))
 
@@ -1156,7 +1296,9 @@ class VolatilityGUI(tk.Tk):
                     f"Waktu  : {datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n"
                     f"Baris  : {len(job.rows)}\n\n"
                 )
-                job.outfile.write_text(header + format_table(job.columns, job.rows), "utf-8")
+                job.outfile.write_text(
+                    header + format_table(job.columns, job.rows), "utf-8"
+                )
         except OSError as excp:
             self.write_log(f"Gagal menulis file output: {excp}\n", "error")
             return False
@@ -1194,7 +1336,11 @@ class VolatilityGUI(tk.Tk):
                 name
                 for name, info in self.catalog.items()
                 if plugin_os(name) == group
-                and (not needle or needle in name.lower() or needle in info["doc"].lower())
+                and (
+                    not needle
+                    or needle in name.lower()
+                    or needle in info["doc"].lower()
+                )
             ]
             if not names:
                 continue
@@ -1209,7 +1355,11 @@ class VolatilityGUI(tk.Tk):
             for name in names:
                 label = name.split(".", 1)[1] if group != "general" else name
                 self.tree.insert(
-                    parent, "end", iid=name, text=label, values=(self.catalog[name]["doc"],)
+                    parent,
+                    "end",
+                    iid=name,
+                    text=label,
+                    values=(self.catalog[name]["doc"],),
                 )
         self._show_plugin_details()
 
@@ -1262,7 +1412,9 @@ class VolatilityGUI(tk.Tk):
                 )
             else:
                 var = variables.setdefault(option["name"], tk.StringVar())
-                ttk.Label(self.options_frame, text=label).grid(row=row, column=0, sticky="w")
+                ttk.Label(self.options_frame, text=label).grid(
+                    row=row, column=0, sticky="w"
+                )
                 if option["kind"] == "choice":
                     widget: tk.Widget = ttk.Combobox(
                         self.options_frame,
@@ -1373,7 +1525,8 @@ class VolatilityGUI(tk.Tk):
     def detect_os(self) -> None:
         if self.current:
             messagebox.showinfo(
-                "Masih berjalan", "Tunggu proses yang berjalan selesai, atau tekan Stop."
+                "Masih berjalan",
+                "Tunggu proses yang berjalan selesai, atau tekan Stop.",
             )
             return
         dump = self._checked_dump()
@@ -1384,7 +1537,9 @@ class VolatilityGUI(tk.Tk):
         self.detected_os = None
         self.detect_error = ""
         self.badge_state = "detecting"
-        self.file_info_var.set(f"{Path(dump).name}  ·  {human_size(os.path.getsize(dump))}")
+        self.file_info_var.set(
+            f"{Path(dump).name}  ·  {human_size(os.path.getsize(dump))}"
+        )
         self.os_var.set("")
         self._refresh_plugins()
         self.detect_var.set("Mendeteksi sistem operasi...")
@@ -1403,7 +1558,9 @@ class VolatilityGUI(tk.Tk):
 
     def _finish_detect_windows(self, job: Job, returncode: int) -> None:
         if job.cancelled:
-            self.detect_var.set("Deteksi dihentikan. Pilih OS secara manual bila perlu.")
+            self.detect_var.set(
+                "Deteksi dihentikan. Pilih OS secara manual bila perlu."
+            )
             self.badge_state = "idle"
             self._update_badge()
             return
@@ -1413,13 +1570,16 @@ class VolatilityGUI(tk.Tk):
             return
         self.detect_error = "".join(job.captured) + "\n".join(job.errors)
         self.write_log(
-            "Bukan Windows (atau symbol tidak tersedia). Mencari banner Linux/Mac...\n", "info"
+            "Bukan Windows (atau symbol tidak tersedia). Mencari banner Linux/Mac...\n",
+            "info",
         )
         self._enqueue([Job("detect_banners", "banners.Banners", job.dump, "csv")])
 
     def _finish_detect_banners(self, job: Job, returncode: int) -> None:
         if job.cancelled:
-            self.detect_var.set("Deteksi dihentikan. Pilih OS secara manual bila perlu.")
+            self.detect_var.set(
+                "Deteksi dihentikan. Pilih OS secara manual bila perlu."
+            )
             self.badge_state = "idle"
             self._update_badge()
             return
@@ -1427,7 +1587,9 @@ class VolatilityGUI(tk.Tk):
         text = "".join(job.captured)
         if returncode == 0 and job.columns and "Banner" in job.columns:
             column = job.columns.index("Banner")
-            banners = [cells[column] for _depth, cells in job.rows if column < len(cells)]
+            banners = [
+                cells[column] for _depth, cells in job.rows if column < len(cells)
+            ]
         counts = collections.Counter()
         for banner in banners:
             if banner.startswith("Linux version"):
@@ -1472,7 +1634,9 @@ class VolatilityGUI(tk.Tk):
         count = sum(1 for name in self.catalog if plugin_os(name) == os_name)
         short = reason if len(reason) <= 90 else reason[:87] + "..."
         self.detect_var.set(f"Terdeteksi: {OS_LABELS[os_name]} ({short})")
-        self.status_var.set(f"{OS_LABELS[os_name]} terdeteksi - {count} plugin tersedia.")
+        self.status_var.set(
+            f"{OS_LABELS[os_name]} terdeteksi - {count} plugin tersedia."
+        )
         self.write_log(
             f"✔ Terdeteksi {OS_LABELS[os_name]}. {count} plugin {OS_LABELS[os_name]} "
             "ditampilkan di daftar.\n",
@@ -1490,12 +1654,17 @@ class VolatilityGUI(tk.Tk):
     def run_selected(self) -> None:
         plugins = self.selected_plugins()
         if not plugins:
-            messagebox.showinfo("Belum ada plugin", "Pilih minimal satu plugin dari daftar.")
+            messagebox.showinfo(
+                "Belum ada plugin", "Pilih minimal satu plugin dari daftar."
+            )
             return
         dump = self._checked_dump()
         if not dump:
             return
-        outdir = Path(normalize_path(self.outdir_var.get()) or DEFAULT_OUTPUT_ROOT / Path(dump).stem)
+        outdir = Path(
+            normalize_path(self.outdir_var.get())
+            or DEFAULT_OUTPUT_ROOT / Path(dump).stem
+        )
         try:
             outdir.mkdir(parents=True, exist_ok=True)
         except OSError as excp:
@@ -1562,10 +1731,19 @@ class VolatilityGUI(tk.Tk):
         self._set_busy(True)
 
         if job.kind == "plugin":
-            done = self.batch_total - sum(1 for queued in self.jobs if queued.kind == "plugin")
-            self.write_log(f"\n=== [{done}/{self.batch_total}] {job.plugin} ===\n", "info")
-            shown = [Path(part).name if i == 0 else part for i, part in enumerate(job.command())]
-            self.write_log("$ " + " ".join(shlex.quote(part) for part in shown) + "\n", "info")
+            done = self.batch_total - sum(
+                1 for queued in self.jobs if queued.kind == "plugin"
+            )
+            self.write_log(
+                f"\n=== [{done}/{self.batch_total}] {job.plugin} ===\n", "info"
+            )
+            shown = [
+                Path(part).name if i == 0 else part
+                for i, part in enumerate(job.command())
+            ]
+            self.write_log(
+                "$ " + " ".join(shlex.quote(part) for part in shown) + "\n", "info"
+            )
             self.write_log(
                 "Sedang berjalan... progres ada di kanan bawah. Pertama kali pada sebuah "
                 "dump bisa beberapa menit karena symbol harus disiapkan.\n",
@@ -1589,7 +1767,9 @@ class VolatilityGUI(tk.Tk):
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except OSError as excp:
-            job.errors.append(f"Tidak bisa menjalankan {Path(job.command()[0]).name}: {excp}")
+            job.errors.append(
+                f"Tidak bisa menjalankan {Path(job.command()[0]).name}: {excp}"
+            )
             self.events.put(("done", job, -1))
             return
         threading.Thread(target=self._pump, args=(job, self.proc), daemon=True).start()
@@ -1613,7 +1793,9 @@ class VolatilityGUI(tk.Tk):
 
     def _pump_table(self, job: Job, proc: subprocess.Popen) -> None:
         """Parses a CSV rendering into job.columns and job.rows as it arrives."""
-        stream = io.TextIOWrapper(proc.stdout, encoding="utf-8", errors="replace", newline="")
+        stream = io.TextIOWrapper(
+            proc.stdout, encoding="utf-8", errors="replace", newline=""
+        )
         # Anything ahead of the CSV header is a message, not a result: when a
         # plugin cannot run, Volatility explains why on stdout.
         for line in stream:
@@ -1668,7 +1850,9 @@ class VolatilityGUI(tk.Tk):
         if match:
             now = time.monotonic()
             if now - last_progress >= PROGRESS_INTERVAL:
-                self.events.put(("progress", job, float(match.group(1)), match.group(2).strip()))
+                self.events.put(
+                    ("progress", job, float(match.group(1)), match.group(2).strip())
+                )
                 return now
             return last_progress
         job.errors.append(line)
@@ -1705,11 +1889,18 @@ class VolatilityGUI(tk.Tk):
         rows = f"{len(job.rows)} baris. " if job.tabular else ""
 
         if job.cancelled:
-            if not job.tabular and job.outfile.exists() and job.outfile.stat().st_size == 0:
+            if (
+                not job.tabular
+                and job.outfile.exists()
+                and job.outfile.stat().st_size == 0
+            ):
                 job.outfile.unlink()
             self.write_log(f"■ {job.plugin} dihentikan.\n", "stderr")
             if saved:
-                self.write_log(f"  Hasil sebagian ({rows.strip()}) disimpan: {job.outfile}\n", "stderr")
+                self.write_log(
+                    f"  Hasil sebagian ({rows.strip()}) disimpan: {job.outfile}\n",
+                    "stderr",
+                )
             self.status_var.set("Dihentikan.")
             return
 
@@ -1744,7 +1935,9 @@ class VolatilityGUI(tk.Tk):
             self.write_log(hint + "\n", "error")
         self.write_log(f"  Log error: {error_path}\n", "error")
         if saved:
-            self.write_log(f"  Hasil sebagian ({rows.strip()}) disimpan: {job.outfile}\n", "error")
+            self.write_log(
+                f"  Hasil sebagian ({rows.strip()}) disimpan: {job.outfile}\n", "error"
+            )
         self.status_var.set(f"{job.plugin} gagal - lihat log.")
         self.notebook.select(self.log_tab)
 
@@ -1766,7 +1959,9 @@ class VolatilityGUI(tk.Tk):
             self.catalog = event[1]
             for failure in event[2]:
                 self.write_log(f"Plugin gagal dimuat: {failure}\n", "stderr")
-            self.status_var.set(f"{len(self.catalog)} plugin dimuat. Pilih memory dump untuk mulai.")
+            self.status_var.set(
+                f"{len(self.catalog)} plugin dimuat. Pilih memory dump untuk mulai."
+            )
             if using_rust():
                 self.write_log("Engine: vol-rs (Rust).\n", "info")
             else:
@@ -1799,7 +1994,9 @@ class VolatilityGUI(tk.Tk):
         elif kind == "progress":
             self._set_busy(False)
             self._set_progress(event[2])
-            self.status_var.set(f"{job.plugin}: {event[3] or 'memproses'} ({event[2]:.0f}%)")
+            self.status_var.set(
+                f"{job.plugin}: {event[3] or 'memproses'} ({event[2]:.0f}%)"
+            )
         elif kind == "done":
             self.proc = None
             self.current = None
